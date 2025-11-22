@@ -1,41 +1,53 @@
 <br>
 
 <p align="center">
-<a href="https://github.com/3SUM"><img width="200" src="logo/gemm.png" alt="gemm logo"></a>
+  <a href="https://github.com/v0-3">
+    <img width="200" src="logo/gemm.png" alt="GEMM logo">
+  </a>
 </p>
 
 <br>
 
 # GEMM
 
-Various general matrix multiplcation (**GEMM**) methods implemented in C++.
+This repository provides multiple implementations of **General Matrix Multiplication (GEMM)** in modern C++.  
+Each approach highlights a distinct optimization strategy, enabling performance comparison, experimentation, and educational analysis.
 
-If you have questions or concerns please feel free to contact me here or on **Discord @v0.3**
+If you have questions or would like to discuss the project, feel free to contact me here or on **Discord: `v0.3`**.
 
-## GEMM Methods
+---
 
-Implementations of GEMM methods are located in [GEMM.h](src/GEMM.h).
+## GEMM Implementations
 
-### Naive
+All GEMM methods can be found in **[GEMM.h](src/GEMM.h)**.  
+The repository includes several increasingly optimized approaches:
 
-Basic nested-for loop approach.
+### 1. Naive
+A direct, triple-nested loop implementation.  
+Serves as a baseline for evaluating more advanced methods.
 
-### Loop interchange (Cache Aware)
+### 2. Loop Interchange (Cache-Aware)
+Reorders the loop structure to improve spatial locality and reduce cache misses.  
+A simple yet effective optimization.
 
-Changing the order of the nested-for loops to provide more efficient memory access by preventing cache misses.
+### 3. Tiling (Cache Blocking)
+Breaks matrices into smaller blocks ("tiles") that fit into cache.  
+Significantly improves data reuse and overall performance.
 
-### Tiling (Cache Blocking)
+### 4. AVX GEMM
+Vectorized GEMM implementation using AVX intrinsics for parallel computation across SIMD registers.
 
-Tiling is a technique used to optimize matrix multiplication by breaking down matrices into smaller, equal-sized subsets called tiles. These tiles are then stored in cache memory, which is faster than RAM.
+---
 
-## Build & Run
+## Building & Running
 
-```
+You can generate input matrices, build the project, and run the GEMM benchmark as follows:
+
+```bash
 python3 gemm.py -m 1024 -n 1024 -k 1024
 make
 ./gemm -m 1024 -n 1024 -k 1024
-```
-```
+
 Select Matrix Multiplication Method
 ===================================
 [1] Naive GEMM
@@ -46,27 +58,30 @@ Select Matrix Multiplication Method
 
 Results
 ===================================
-	A Matrix [1024 x 1024]
-	B Matrix [1024 x 1024]
-	C Matrix [1024 x 1024]
+    A Matrix [1024 x 1024]
+    B Matrix [1024 x 1024]
+    C Matrix [1024 x 1024]
 
-	M         =       1024
-	N         =       1024
-	K         =       1024
-	GFLOPS    =   20.45223
-	Time (ms) =        105
+    M         =       1024
+    N         =       1024
+    K         =       1024
+    GFLOPS    =   20.45223
+    Time (ms) =        105
 
 [SUCCESS] All done!
 ```
 
-**Notes**:
+---
 
--   **C++ std used is C++23, compiler version gcc/g++-14**.
--   [gemm.py](src/gemm.py) is used to generate a data file to populate matrices accordingly for [main](src/main.cpp) testing.
--   **Matrix dimensions must match for both programs**.
+## Notes
+	•	This project uses C++23, built with GCC/G++ 14.
+	•	gemm.py￼ generates matrix data files consumed by main.cpp￼.
+	•	Matrix dimensions must match across GEMM configurations and data generation.
+
+
+---
 
 ## License
 
-&copy; [Luis Maya Aranda](https://github.com/3SUM). All rights reserved.
-
+© Luis Maya Aranda￼. All rights reserved.
 Licensed under the MIT License.
