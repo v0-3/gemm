@@ -13,7 +13,7 @@
 This repository provides multiple implementations of **General Matrix Multiplication (GEMM)** in modern C++.  
 Each approach highlights a distinct optimization strategy, enabling performance comparison, experimentation, and educational analysis.
 
-If you have questions or would like to discuss the project, feel free to contact me here or on **Discord: `v0.3`**.
+If you have questions or would like to discuss the project, feel free to contact me here or on **Discord: `@v0.3`**.
 
 ---
 
