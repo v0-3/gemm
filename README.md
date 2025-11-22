@@ -83,5 +83,5 @@ Results
 
 ## License
 
-© Luis Maya Aranda￼. All rights reserved.
-Licensed under the MIT License.
+© [Luis Maya Aranda](https://github.com/v0-3). All rights reserved.  
+Licensed under the **MIT License**.
