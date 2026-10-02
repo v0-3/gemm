@@ -1,18 +1,32 @@
 AVX_ON ?= 0
 
 CXX = g++
-CXXFLAGS = -std=c++2b -march=native -O3 -Wall -pedantic
+CXXFLAGS ?= -std=c++23 -march=native -O3 -Wall -Wextra -pedantic
+PYTHON ?= python3
 AVXFLAGS = -mavx
 
 SRC = main.cpp
 OUT = gemm
+HEADERS = GEMM.h Timer.h Utils.h
+TEST_OUT = test_gemm
 
 ifeq ($(AVX_ON), 1)
-    CXXFLAGS += $(AVXFLAGS)
+    TARGET_FLAGS = $(AVXFLAGS)
 endif
 
-all:
-	$(CXX) $(CXXFLAGS) $(SRC) -o $(OUT)
+.PHONY: all clean test
+
+all: $(OUT)
+
+$(OUT): $(SRC) $(HEADERS) Makefile
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $(TARGET_FLAGS) $(SRC) $(LDFLAGS) $(LDLIBS) -o $@
+
+$(TEST_OUT): tests/test_gemm.cpp $(HEADERS) Makefile
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $(TARGET_FLAGS) -I. tests/test_gemm.cpp $(LDFLAGS) $(LDLIBS) -o $@
+
+test: $(OUT) $(TEST_OUT)
+	./$(TEST_OUT)
+	$(PYTHON) tests/test_cli.py
 
 clean:
-	rm -f $(OUT)
+	rm -f $(OUT) $(TEST_OUT)

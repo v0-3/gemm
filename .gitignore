@@ -2,4 +2,6 @@
 .vscode
 src/*.bin
 src/gemm
+src/test_gemm
 src/.venv
+__pycache__/

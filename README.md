@@ -44,6 +44,10 @@ Vectorized GEMM implementation using AVX intrinsics for parallel computation acr
 You can generate input matrices, build the project, and run the GEMM benchmark as follows:
 
 ```bash
+cd src
+python3 -m venv .venv
+source .venv/bin/activate
+python3 -m pip install numpy
 python3 gemm.py -m 1024 -n 1024 -k 1024
 make
 ./gemm -m 1024 -n 1024 -k 1024
@@ -70,6 +74,9 @@ Results
 
 [SUCCESS] All done!
 ```
+
+Run `make test` from `src` to check the kernels, utilities, command-line validation, and NumPy data generation.
+AVX is available when enabled by the compiler target; on x86, use `make clean && make AVX_ON=1` to enable it explicitly. Run `make clean` before changing compiler flags.
 
 ---
 

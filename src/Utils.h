@@ -1,14 +1,21 @@
 #pragma once
 
 #include <cmath>
+#include <cstddef>
 #include <print>
 #include <sstream>
+#include <stdexcept>
+#include <string>
 
-bool is_equal(const float *m1, const float *m2, const int rows, const int cols) {
+inline bool is_equal(const float *m1, const float *m2, const int rows, const int cols) {
     for (int i = 0; i < rows; i++) {
         for (int j = 0; j < cols; j++) {
-            if (fabsf(m1[i * rows + j] - m2[i * rows + j]) > 1.0e-3) {
-                std::print("\n[ERROR] Mismatch at ({0}, {1}) m1[{2}] != m2[{3}]\n", i, j, m1[i * rows + j], m2[i * cols + j]);
+            const std::size_t index = static_cast<std::size_t>(i) * cols + j;
+            // Allow float accumulation roundoff relative to the reference magnitude.
+            const float tolerance = 1.0e-3f + 1.0e-5f * std::fabs(m1[index]);
+            if (!std::isfinite(m1[index]) || !std::isfinite(m2[index]) ||
+                std::fabs(m1[index] - m2[index]) > tolerance) {
+                std::print(stderr, "\n[ERROR] Mismatch at ({}, {}) m1[{}] != m2[{}]\n", i, j, m1[index], m2[index]);
                 return false;
             }
         }
@@ -18,30 +25,27 @@ bool is_equal(const float *m1, const float *m2, const int rows, const int cols) 
     return true;
 }
 
-void print_matrix(const float *m, const int rows, const int cols) {
+inline void print_matrix(const float *m, const int rows, const int cols) {
     for (int i = 0; i < rows; i++) {
         for (int j = 0; j < cols; j++) {
-            std::print("{} ", m[i * rows + j]);
+            std::print("{} ", m[static_cast<std::size_t>(i) * cols + j]);
         }
         std::print("\n");
     }
     std::print("\n\n");
 }
 
-int get_arg_value(char *arg) {
+inline int get_arg_value(const char *arg) {
     int n = 0;
     std::istringstream ss(arg);
     if (!(ss >> n)) {
-        std::print("[ERROR] Invalid value: {}", arg);
-        exit(EXIT_FAILURE);
+        throw std::invalid_argument(std::string("Invalid value: ") + arg);
     } else if (!ss.eof()) {
-        std::print("[ERROR] Trailing characters after number: {}", arg);
-        exit(EXIT_FAILURE);
+        throw std::invalid_argument(std::string("Trailing characters after number: ") + arg);
     }
 
     if (n <= 0) {
-        std::print("[ERROR] Invalid value: {}", arg);
-        exit(EXIT_FAILURE);
+        throw std::invalid_argument(std::string("Invalid value: ") + arg);
     }
 
     return n;
