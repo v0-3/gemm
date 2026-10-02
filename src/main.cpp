@@ -81,9 +81,14 @@ int main(int argc, char *argv[]) try {
     std::print("[2] Loop order GEMM\n");
     std::print("[3] Tiling GEMM\n");
 #if defined(__AVX__)
-    std::print("[4] AVX GEMM\n> ");
+    std::print("[4] AVX GEMM\n");
 #else
-    std::print("[4] AVX GEMM (unavailable in this build)\n> ");
+    std::print("[4] AVX GEMM (unavailable in this build)\n");
+#endif
+#if defined(__APPLE__) && defined(__aarch64__)
+    std::print("[5] Apple Silicon GEMM\n> ");
+#else
+    std::print("[5] Apple Silicon GEMM (unavailable in this build)\n> ");
 #endif
     std::string selection;
     if (!std::getline(std::cin, selection)) {
@@ -111,6 +116,13 @@ int main(int argc, char *argv[]) try {
             multiply = AVX;
 #else
             throw std::runtime_error("AVX is unavailable in this build!");
+#endif
+            break;
+        case 5:
+#if defined(__APPLE__) && defined(__aarch64__)
+            multiply = apple_silicon;
+#else
+            throw std::runtime_error("Apple Silicon GEMM is unavailable in this build!");
 #endif
             break;
         default:

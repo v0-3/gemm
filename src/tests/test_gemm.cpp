@@ -1,7 +1,9 @@
+#include <array>
 #include <cmath>
 #include <cstdlib>
 #include <limits>
 #include <print>
+#include <random>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -32,6 +34,9 @@ void test_kernels() {
     const Kernel kernels[] = {naive, looporder, tiling,
 #if defined(__AVX__)
                               AVX,
+#endif
+#if defined(__APPLE__) && defined(__aarch64__)
+                              apple_silicon,
 #endif
     };
     for (int M : {1, 2, 5}) {
@@ -66,6 +71,109 @@ void test_kernels() {
         }
     }
 }
+
+#if defined(__APPLE__) && defined(__aarch64__)
+void test_apple_silicon() {
+    std::mt19937 random(42);
+    std::uniform_real_distribution<float> value(-1.0f, 1.0f);
+    for (auto [M, N, K] : {std::array{1, 17, 33}, {33, 1, 17}, {16, 16, 16},
+                           {17, 16, 16}, {16, 17, 16}, {16, 16, 17}, {31, 33, 65},
+                           {65, 31, 33}, {127, 129, 63}, {129, 65, 257}}) {
+        // Offset every matrix by one float to exercise unaligned input and output.
+        std::vector<float> A(M * K + 2), B(K * N + 2), C(M * N + 2, 123456.0f);
+        for (int run = 0; run < 2; ++run) {
+            for (float &a : A) a = value(random);
+            for (float &b : B) b = value(random);
+            const auto original_A = A, original_B = B;
+            std::fill(C.begin() + 1, C.end() - 1, std::numeric_limits<float>::quiet_NaN());
+            apple_silicon(A.data() + 1, B.data() + 1, C.data() + 1, M, N, K);
+            require(A == original_A && B == original_B, "Apple Silicon GEMM modified its inputs");
+            require(C.front() == 123456.0f && C.back() == 123456.0f, "Apple Silicon GEMM wrote past C");
+            for (int i = 0; i < M; ++i) {
+                for (int j = 0; j < N; ++j) {
+                    double expected = 0.0, magnitude = 0.0;
+                    for (int k = 0; k < K; ++k) {
+                        const double product = static_cast<double>(A[1 + i * K + k]) * B[1 + k * N + j];
+                        expected += product;
+                        magnitude += std::fabs(product);
+                    }
+                    const float actual = C[1 + i * N + j];
+                    const double tolerance = 1.0e-6 + 8.0 * std::numeric_limits<float>::epsilon() * magnitude;
+                    require(std::isfinite(actual) && std::fabs(actual - expected) <= tolerance,
+                            "Apple Silicon GEMM disagrees with double-precision reference");
+                }
+            }
+        }
+    }
+    float output[] = {1.0f, 2.0f, 3.0f, 4.0f};
+    apple_silicon(nullptr, nullptr, output, 0, 2, 3);
+    apple_silicon(nullptr, nullptr, output, 2, 0, 3);
+    require(output[0] == 1.0f && output[3] == 4.0f, "Empty product modified C");
+    apple_silicon(nullptr, nullptr, output, 2, 2, 0);
+    for (float element : output) require(element == 0.0f, "Zero inner dimension did not clear C");
+}
+
+void test_apple_silicon_large() {
+    // Just below/at the GPU crossover, plus a rectangular GPU product with padded
+    // rows. Dense dyadic inputs have an exact, independently computed reference.
+    for (auto [M, N, K] : {std::array{5120, 5120, 5119}, {5120, 5120, 5120}, {5121, 5119, 5121}}) {
+        std::vector<float> A(static_cast<std::size_t>(M) * K), B(static_cast<std::size_t>(K) * N);
+        std::vector<float> C(static_cast<std::size_t>(M) * N + 2, 123456.0f);
+        double inner_product = 0.0;
+        for (int k = 0; k < K; ++k) {
+            inner_product += (k % 11 - 5) * (k % 13 - 6);
+        }
+        for (int i = 0; i < M; ++i) {
+            for (int k = 0; k < K; ++k) {
+                A[static_cast<std::size_t>(i) * K + k] = (i % 7 - 3) * (k % 11 - 5) / 64.0f;
+            }
+        }
+        for (int run = 0; run < 2; ++run) {
+            for (int k = 0; k < K; ++k) {
+                for (int j = 0; j < N; ++j) {
+                    B[static_cast<std::size_t>(k) * N + j] = (k % 13 - 6) * (j % 17 - 8 + run) / 128.0f;
+                }
+            }
+            std::fill(C.begin() + 1, C.end() - 1, std::numeric_limits<float>::quiet_NaN());
+            apple_silicon(A.data(), B.data(), C.data() + 1, M, N, K);
+            require(C.front() == 123456.0f && C.back() == 123456.0f, "Large product wrote past C");
+            for (int i = 0; i < M; ++i) {
+                for (int j = 0; j < N; ++j) {
+                    const float expected = static_cast<float>((i % 7 - 3) * (j % 17 - 8 + run) * inner_product / 8192.0);
+                    require(C[1 + static_cast<std::size_t>(i) * N + j] == expected,
+                            "Incorrect large Apple Silicon product or stale input/output");
+                }
+            }
+        }
+        if (M != N) {
+            // General float inputs also check GPU roundoff and cancellation.
+            // Sample a double reference to avoid a cubic scalar test at this size.
+            std::mt19937 random(123);
+            std::uniform_real_distribution<float> value(-1.0f, 1.0f);
+            for (float &a : A) a = value(random);
+            for (float &b : B) b = value(random);
+            std::fill(C.begin() + 1, C.end() - 1, std::numeric_limits<float>::quiet_NaN());
+            apple_silicon(A.data(), B.data(), C.data() + 1, M, N, K);
+            require(C.front() == 123456.0f && C.back() == 123456.0f, "Random large product wrote past C");
+            for (int point = 0; point < 64; ++point) {
+                const int i = point * (M - 1) / 63;
+                const int j = (63 - point) * (N - 1) / 63;
+                double expected = 0.0, magnitude = 0.0;
+                for (int k = 0; k < K; ++k) {
+                    const double product = static_cast<double>(A[static_cast<std::size_t>(i) * K + k]) *
+                                           B[static_cast<std::size_t>(k) * N + j];
+                    expected += product;
+                    magnitude += std::fabs(product);
+                }
+                const float actual = C[1 + static_cast<std::size_t>(i) * N + j];
+                const double tolerance = 8.0 * std::numeric_limits<float>::epsilon() * magnitude;
+                require(std::isfinite(actual) && std::fabs(actual - expected) <= tolerance,
+                        "GPU product disagrees with double-precision reference");
+            }
+        }
+    }
+}
+#endif
 
 void test_comparison() {
     const float expected[] = {1, 2, 3, 4, 5, 6};
@@ -117,6 +225,10 @@ void test_timer() {
 int main() {
     try {
         test_kernels();
+#if defined(__APPLE__) && defined(__aarch64__)
+        test_apple_silicon();
+        test_apple_silicon_large();
+#endif
         test_comparison();
         test_arguments();
         test_timer();

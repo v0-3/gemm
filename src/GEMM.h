@@ -11,6 +11,11 @@ inline constexpr int TILE_SIZE = 4;
 inline constexpr int BLOCK_SIZE = 8;  // 256 bits / 32 bits per float = 8 floats
 
 // Each kernel computes C = A * B for non-overlapping row-major matrices.
+#if defined(__APPLE__) && defined(__aarch64__)
+// NEON for tiny matrices, Accelerate for CPU GEMM, Metal for large products.
+void apple_silicon(const float *A, const float *B, float *C, int M, int N, int K);
+#endif
+
 inline void naive(const float *A, const float *B, float *C, int M, int N, int K) {
     for (int i = 0; i < M; i++) {
         const std::size_t a_row = static_cast<std::size_t>(i) * K;

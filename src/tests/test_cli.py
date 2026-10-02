@@ -65,6 +65,17 @@ class CommandLineTests(unittest.TestCase):
                     self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
                     self.assertIn("[SUCCESS]", result.stdout)
 
+    def test_apple_silicon_or_explicit_unavailability(self):
+        for m, n, k in [(1, 1, 1), (5, 7, 9), (16, 16, 16), (17, 19, 23), (65, 31, 33)]:
+            with self.subTest(shape=(m, n, k)):
+                result = self.run_gemm(m, n, k, "5\n", matrix_data(m, n, k))
+                if "[5] Apple Silicon GEMM (unavailable" in result.stdout:
+                    self.assert_failure(result)
+                    self.assertNotIn("Results", result.stdout)
+                else:
+                    self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                    self.assertIn("[SUCCESS]", result.stdout)
+
     def test_reference_mismatch(self):
         data = bytearray(matrix_data(2, 3, 5))
         struct.pack_into("=f", data, len(data) - 4, 999.0)
@@ -90,7 +101,7 @@ class CommandLineTests(unittest.TestCase):
                 self.assertNotIn("Select Matrix", result.stdout)
 
     def test_invalid_method(self):
-        for method in ("", "0\n", "5\n", "abc\n", "1x\n", "1 2\n"):
+        for method in ("", "0\n", "6\n", "abc\n", "1x\n", "1 2\n"):
             with self.subTest(method=method):
                 result = self.run_gemm(method=method, data=matrix_data(2, 3, 5))
                 self.assert_failure(result)
@@ -154,6 +165,9 @@ class CommandLineTests(unittest.TestCase):
         self.assertEqual((self.cwd / "data.bin").stat().st_size, 4 * (3 * 5 + 5 * 9 + 3 * 9))
         for method in (1, 2, 3):
             result = self.run_gemm(3, 9, 5, f"{method}\n")
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        result = self.run_gemm(3, 9, 5, "5\n")
+        if "[5] Apple Silicon GEMM (unavailable" not in result.stdout:
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
 

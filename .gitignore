@@ -3,5 +3,7 @@
 src/*.bin
 src/gemm
 src/test_gemm
+src/bench_gemm
+src/AppleGEMM.o
 src/.venv
 __pycache__/
